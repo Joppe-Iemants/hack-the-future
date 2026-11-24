@@ -23,15 +23,15 @@ function exportCard(){
     p.name=$('#alias').value.trim()||'Speler 1';write('player',p);
     const withPaths=$('#share-lines').checked;
     const activities=history().filter(a=>a.end>=periodStart('week')).map(a=>({mode:a.mode,end:a.end,meters:a.meters,lines:withPaths?discreetPath(a.path):[]}));
-    const blob=new Blob([JSON.stringify({format:'loopcade-week-1',player:p,activities})],{type:'application/json'});
-    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='loopcade-weekkaart.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    const blob=new Blob([JSON.stringify({format:'plan2run-week-1',player:p,activities})],{type:'application/json'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='plan2run-weekkaart.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
     closeModal();renderFriends();toast('Je weekkaart is klaar om te delen.');
   };
 }
 async function importCard(file){
-  if(!file||file.size>2_000_000)throw Error('Kies een Loopcade-weekkaart van maximaal 2 MB.');
+  if(!file||file.size>2_000_000)throw Error('Kies een plan2run-weekkaart van maximaal 2 MB.');
   const data=JSON.parse(await file.text());
-  if(data.format!=='loopcade-week-1'||!data.player||typeof data.player.name!=='string'||typeof data.player.id!=='string'||data.player.id.length>80||!Array.isArray(data.activities)||data.activities.length>500)throw Error('Dit bestand is geen geldige Loopcade-weekkaart.');
+  if(!['plan2run-week-1','loopcade-week-1'].includes(data.format)||!data.player||typeof data.player.name!=='string'||typeof data.player.id!=='string'||data.player.id.length>80||!Array.isArray(data.activities)||data.activities.length>500)throw Error('Dit bestand is geen geldige plan2run-weekkaart.');
   if(player().id===data.player.id)throw Error('Dit is je eigen weekkaart. Kies het bestand van een vriend.');
   const activities=data.activities.map(a=>{
     if(!['run','walk'].includes(a.mode)||!Number.isFinite(a.end)||a.end>Date.now()+600000||a.end<0||!Number.isFinite(a.meters)||a.meters<=0||a.meters>50000)throw Error('Deze weekkaart bevat ongeldige activiteiten.');

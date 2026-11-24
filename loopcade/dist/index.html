@@ -4,14 +4,14 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0c0c18">
   <meta name="description" content="Plan een loop- of wandelrondje over de straten van Gent. Kies je afstand en kom terug bij je startpunt.">
-  <title>Loopcade · Routeplanner</title>
+  <title>plan2run · Routeplanner</title>
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="preload" href="pixel.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="top"><div class="shell top-inner">
-    <a class="brand" href="#planner" aria-label="Loopcade startpagina"><img src="logo.svg" width="39" height="39" alt=""><span>LOOP<span>CADE</span></span></a>
+    <a class="brand" href="#planner" aria-label="plan2run startpagina"><img src="logo.svg" width="39" height="39" alt=""><span>plan<span>2run</span></span></a>
     <nav aria-label="Hoofdnavigatie">
       <a href="#planner" data-page="planner" class="current"><i data-icon="route"></i>Routeplanner</a>
       <a href="#activities" data-page="activities"><i data-icon="activity"></i>Activiteiten</a>
@@ -43,6 +43,9 @@
             <input id="distance" type="range" min="1" max="12" step="0.5" value="5" aria-valuetext="5 kilometer">
             <div class="range-ends"><span>1 km</span><span>12 km</span></div>
           </div>
+          <fieldset class="scenery-field"><legend>Wat wil je onderweg zien?</legend>
+            <div id="preferences" class="preference-list"></div>
+          </fieldset>
           <button type="submit" class="button pink wide" id="generate" disabled><i data-icon="shuffle"></i>Genereer rondje</button>
           <p class="form-feedback" id="form-feedback" role="status"></p>
         </div>
@@ -51,12 +54,14 @@
         <div class="panel-heading"><h2><i data-icon="route"></i>Jouw rondje</h2><span class="live-badge" id="route-status"><b></b>Kaart laden</span></div>
         <div class="map-frame" id="map-frame">
           <canvas id="map" tabindex="0" aria-label="Routekaart van Gent. Gebruik de pijltjestoetsen om te verschuiven en plus of min om in te zoomen."></canvas>
+          <div class="start-marker" id="start-marker" hidden><i data-icon="pin"></i><span>Startpunt</span></div>
           <div class="map-location"><i data-icon="pin"></i> GENT, BE</div>
-          <div class="map-tools"><button type="button" id="zoom-in" aria-label="Inzoomen">+</button><button type="button" id="zoom-out" aria-label="Uitzoomen">−</button><button type="button" id="map-fit" aria-label="Volledige route tonen"><i data-icon="frame"></i></button></div>
+          <div class="map-tools"><button type="button" id="pick-start" aria-label="Startpunt op kaart kiezen" aria-pressed="false" title="Startpunt op kaart kiezen" disabled><i data-icon="pin"></i></button><button type="button" id="zoom-in" aria-label="Inzoomen">+</button><button type="button" id="zoom-out" aria-label="Uitzoomen">−</button><button type="button" id="map-fit" aria-label="Route of startpunt in beeld brengen"><i data-icon="frame"></i></button></div>
           <div class="map-scale" id="scale"></div>
           <a class="attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
         </div>
         <div id="options" class="alternatives" hidden></div>
+        <div id="route-matches" class="route-matches" aria-live="polite" hidden></div>
         <div class="route-stats" aria-live="polite">
           <div><span><i data-icon="route"></i>Afstand</span><strong id="stat-distance">—</strong></div>
           <div><span><i data-icon="clock"></i>Geschatte tijd</span><strong id="stat-time">—</strong></div>
@@ -70,7 +75,7 @@
     </section>
     <section id="activities" hidden></section>
     <section id="friends" hidden></section>
-    <footer><span class="foot-brand"><b></b><b></b><b></b> LOOPCADE</span><button class="text-link" id="credits">Kaart & gegevens</button></footer>
+    <footer><span class="foot-brand"><b></b><b></b><b></b> plan2run</span><button class="text-link" id="credits">Kaart & gegevens</button></footer>
   </main>
   <dialog id="dialog"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="icon-btn" id="dialog-close" aria-label="Sluiten">×</button></div><div id="dialog-body"></div></dialog>
   <div id="toast" role="status"></div>

@@ -15,6 +15,7 @@ const districts = [
 export class RouteMap {
   constructor(canvas, data) {
     this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.data = data;
+    this.marker=document.querySelector('#start-marker');
     this.zoom = 1; this.center = [0,0]; this.points = []; this.base = 1;
     this.layers = {};
     for (const key of Object.keys(palette)) this.layers[key] = [];
@@ -31,15 +32,27 @@ export class RouteMap {
     const schedule = () => this.schedule();
     new ResizeObserver(() => {if(this.canvas.clientWidth) this.fit();}).observe(canvas);
     canvas.addEventListener('wheel', e => {e.preventDefault();this.zoomBy(e.deltaY<0?1.22:1/1.22);},{passive:false});
-    let drag;
-    canvas.addEventListener('pointerdown', e=>{canvas.setPointerCapture(e.pointerId);drag=[e.clientX,e.clientY];});
+    let drag, down, moved;
+    canvas.addEventListener('pointerdown', e=>{
+      if(!e.isPrimary || e.button!==0)return;
+      canvas.setPointerCapture(e.pointerId);down=drag=[e.clientX,e.clientY];moved=false;
+    });
     canvas.addEventListener('pointermove', e=>{
-      if (!drag) return;
+      if (!e.isPrimary || !drag) return;
+      if(!moved && Math.hypot(e.clientX-down[0],e.clientY-down[1])<5)return;
+      moved=true;
       this.center[0]-=(e.clientX-drag[0])/this.scale;this.center[1]+=(e.clientY-drag[1])/this.scale;
       drag=[e.clientX,e.clientY];schedule();
     });
+    canvas.addEventListener('pointerup',e=>{
+      if(!e.isPrimary || !drag || moved || !this.onPick)return;
+      const rect=canvas.getBoundingClientRect();
+      this.onPick([this.center[0]+(e.clientX-rect.left-rect.width/2)/this.scale,
+        this.center[1]-(e.clientY-rect.top-rect.height/2)/this.scale]);
+    });
     canvas.addEventListener('lostpointercapture',()=>{drag=null;});
     canvas.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && this.onPick){e.preventDefault();this.onPick(this.center);return;}
       const keys={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]};
       if(keys[e.key]) {e.preventDefault();const [x,y]=keys[e.key];this.center[0]+=x*65/this.scale;this.center[1]+=y*65/this.scale;schedule();}
       if(['+','=','-'].includes(e.key)) {e.preventDefault();this.zoomBy(e.key==='-'?.75:1.35);}
@@ -50,9 +63,17 @@ export class RouteMap {
   }
   get scale(){return this.base*this.zoom;}
   zoomBy(factor){this.zoom=Math.max(.5,Math.min(12,this.zoom*factor));this.schedule();}
-  setRoute(points){this.points=points;this.fit();}
+  setStart(point){
+    this.start=point;
+    const w=this.canvas.clientWidth,h=this.canvas.clientHeight;
+    if(Math.abs(point[0]-this.center[0])*this.scale>w/2-40 ||
+       Math.abs(point[1]-this.center[1])*this.scale>h/2-42)this.center=[...point];
+    this.schedule();
+  }
+  setRoute(points){this.points=points;if(points.length)this.fit();else this.schedule();}
   fit() {
-    if(!this.points.length||!this.canvas.clientWidth)return;
+    if(!this.canvas.clientWidth)return;
+    if(!this.points.length){if(this.start)this.center=[...this.start];this.schedule();return;}
     const xs=this.points.map(p=>p[0]),ys=this.points.map(p=>p[1]);
     const left=Math.min(...xs),right=Math.max(...xs),bottom=Math.min(...ys),top=Math.max(...ys);
     this.center=[(left+right)/2,(bottom+top)/2];this.zoom=1;
@@ -115,11 +136,13 @@ export class RouteMap {
         if(accumulated<85 || Math.hypot(x-px,y-py)<3)continue;
         accumulated=0;c.save();c.translate(x,y);c.rotate(Math.atan2(y-py,x-px));c.beginPath();c.moveTo(-4,-3);c.lineTo(0,0);c.lineTo(-4,3);c.strokeStyle='#ffe5f5';c.lineWidth=1.7;c.stroke();c.restore();
       }
-      const [x,y]=coords[0];
-      c.fillStyle='#62f4df33';c.beginPath();c.arc(x,y,12,0,Math.PI*2);c.fill();
-      c.fillStyle='#132423';c.strokeStyle='#66f3df';c.lineWidth=3;c.beginPath();c.arc(x,y,6,0,Math.PI*2);c.fill();c.stroke();
-      const lx=x>w-100?x-82:x+11,ly=y-26;
-      c.fillStyle='#6cf7dc';c.fillRect(lx,ly,71,19);c.font='bold 10px monospace';c.fillStyle='#102925';c.fillText('START/FINISH',lx+35.5,ly+9.5);
+    }
+    if(this.start){
+      const [x,y]=screen(this.start);
+      this.marker.hidden=x<0||y<0||x>w||y>h;
+      this.marker.style.left=x+'px';this.marker.style.top=y+'px';
+      this.marker.classList.toggle('label-left',x>w-100);
+      this.marker.querySelector('span').textContent=this.points.length?'Start / finish':'Startpunt';
     }
     if(this.position){
       const [x,y]=screen(this.position);c.beginPath();c.arc(x,y,6,0,2*Math.PI);c.fillStyle='#64f1ef';c.fill();c.lineWidth=2;c.strokeStyle='#fff';c.stroke();

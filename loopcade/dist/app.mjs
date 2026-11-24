@@ -1,5 +1,6 @@
 import {createNetwork,makeRoutes,climb,reward} from './router.mjs';
 import {RouteMap} from './map.mjs';
+import {preferences} from './scenery.mjs';
 import {$,icon,modal,closeModal,toast,km,duration,escapeText,read,write} from './ui.mjs';
 import {history,reflection,renderActivities} from './journal.mjs';
 import {renderFriends} from './friends.mjs';
@@ -14,6 +15,12 @@ let active=read('ongoing',null),mode='run',watch=null,geoNote='',activeTimer,ini
 const distance=()=>Number($('#distance').value)*1000;
 const xy=(lon,lat)=>[(lon-data.origin[0])*data.scale[0],(lat-data.origin[1])*data.scale[1]];
 const plannedTime=r=>Math.max(1,Math.round(r.meters/1000*(mode==='run'?6:12)));
+const prefLabels = new Map(preferences.map(p=>[p.key,p.label]));
+$('#preferences').innerHTML=preferences.map(({key,label})=>'<label><input type="checkbox" name="scenery" value="'+key+'">'+label+'</label>').join('');
+const prefInputs=[...document.querySelectorAll('input[name=scenery]')];
+const requested=()=>prefInputs.filter(input=>input.checked).map(input=>input.value);
+for(const input of prefInputs)input.checked=(active?.requested||[]).includes(input.value);
+$('#preferences').onchange=()=>{dirty();feedback('');};
 const titles={planner:['Routeplanner','Jouw afstand, een nieuw rondje. Terug waar je begon.'],activities:['Activiteiten','Je rondjes, persoonlijke records en fijne momenten onderweg.'],friends:['Vrienden','Deel je rondjes en ontdek wie deze week de meeste punten haalt.']};
 
 function page(){
@@ -23,7 +30,7 @@ function page(){
     link.classList.toggle('current',link.dataset.page===key);
     if(link.dataset.page===key)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
   });
-  $('#page-title').textContent=titles[key][0];$('#page-intro').textContent=titles[key][1];document.title='Loopcade · '+titles[key][0];
+  $('#page-title').textContent=titles[key][0];$('#page-intro').textContent=titles[key][1];document.title='plan2run · '+titles[key][0];
   if(key==='activities')renderActivities();if(key==='friends')renderFriends();
   if(key==='planner'&&map)requestAnimationFrame(()=>map.fit());
   $('#total').textContent=history().reduce((sum,a)=>sum+a.points,0);
@@ -31,9 +38,14 @@ function page(){
 window.addEventListener('hashchange',page);$('#score-link').onclick=()=>location.hash='activities';
 function feedback(msg=''){$('#form-feedback').textContent=msg;}
 function status(text){$('#route-status').innerHTML='<b></b>'+escapeText(text);}
+function isOutdated(){
+  return !selected || selected.from!==startId || selected.target!==distance() ||
+    requested().join(',')!==(selected.requested||[]).join(',');
+}
 function dirty(){
-  const outdated=!selected||selected.from!==startId||selected.target!==distance();
-  $('#start-run').disabled=!active&&outdated;
+  const outdated=isOutdated();
+  $('#start-run').disabled=busy||(!active&&outdated);
+  $('#route-matches').hidden=outdated||!selected?.matches?.length;
   if(!active&&selected)status(outdated?'Pas je rondje aan':'Route klaar');
 }
 function updateSlider(){
@@ -57,37 +69,51 @@ function updateStats(){
   $('#difficulty').textContent=difficulty;
 }
 function selectRoute(r){
-  selected=r;map.setRoute(r.path);updateStats();dirty();
+  selected=r;map.setRoute(r.path);updateStats();
+  const matches=r.matches||[], met=matches.filter(m=>m.met).length;
+  $('#route-matches').innerHTML=matches.length?'<strong>'+met+' van '+matches.length+' voorkeuren op dit rondje</strong><ul>'+matches.map(m=>{
+    const label=prefLabels.get(m.key);
+    const detail=m.key==='architecture'?m.names?.join(', '):'± '+Math.round(m.meters/10)*10+' m';
+    return '<li class="'+(m.met?'met':'miss')+'">'+(m.met?'✓ ':'– ')+escapeText(label)+' · '+(m.met?escapeText(detail):'niet gevonden')+'</li>';
+  }).join('')+'</ul>':'';
+  dirty();
   if(active)status('Rondje actief');
   document.querySelectorAll('[data-option]').forEach(b=>b.classList.toggle('selected',choices[Number(b.dataset.option)]===r));
 }
 function lockControls(){
   $('#generate').disabled=busy||!!active||!net;$('#start-place').disabled=busy||!!active||!net;$('#distance').disabled=busy||!!active;
   document.querySelectorAll('input[name=mode]').forEach(el=>el.disabled=busy||!!active);
+  prefInputs.forEach(el=>el.disabled=busy||!!active);
+  $('#pick-start').disabled=busy||!!active||!map;
   $('#start-run').innerHTML=icon('play')+(active?'Rondje bekijken':'Start rondje');
-  $('#start-run').disabled=busy||(!active&&(!selected||selected.from!==startId||selected.target!==distance()));
+  $('#start-run').disabled=busy||(!active&&isOutdated());
+}
+function clearPreview(){
+  selected=null;choices=[];map.setRoute([]);$('#options').hidden=true;$('#route-matches').hidden=true;
+  for(const key of ['distance','time','height','points'])$('#stat-'+key).textContent='—';
+  $('#difficulty').textContent='Nog geen rondje';
 }
 function setStart(id,name){
-  startId=id;place=name;$('#place-label').textContent=place;dirty();feedback('');picking=false;
+  if(selected && selected.from!==id){clearPreview();status('Startpunt gekozen');}
+  startId=id;place=name;$('#place-label').textContent=place;
+  map.setStart(data.points[id]);setPicking(false);dirty();feedback('');
 }
 async function generate(){
   if(!net||active||busy)return;
-  busy=true;lockControls();feedback('');status('Route zoeken');$('#generate').innerHTML=icon('shuffle')+'Rondje zoeken…';
+  setPicking(false);busy=true;lockControls();feedback('');status('Route zoeken');$('#generate').innerHTML=icon('shuffle')+'Rondje zoeken…';
   await new Promise(resolve=>setTimeout(resolve,25));
   try{
-    const target=distance();
+    const target=distance(), prefs=requested();
     let random=Math.random;
     if(initial){let seed=2026;random=()=>((seed=(Math.imul(1664525,seed)+1013904223)>>>0)/4294967296);initial=false;}
-    let found=makeRoutes(net,startId,target,random);
-    if(!found.length)found=makeRoutes(net,startId,target);
+    let found=makeRoutes(net,startId,target,random,prefs);
+    if(!found.length)found=makeRoutes(net,startId,target,Math.random,prefs);
     if(selected&&found.length===1&&found[0].ids.join(',')===selected.ids?.join(',')){
-      const alternates=makeRoutes(net,startId,target);
+      const alternates=makeRoutes(net,startId,target,Math.random,prefs);
       if(alternates.length)found=alternates;
     }
-    if(!found.length){selected=null;choices=[];map.setRoute([]);map.draw();$('#options').hidden=true;
-      for(const key of ['distance','time','height','points'])$('#stat-'+key).textContent='—';
-      $('#difficulty').textContent='Geen voorstel';status('Geen lus gevonden');feedback('Hier vonden we geen geschikte lus. Kies een ander startpunt of een andere afstand.');return;}
-    choices=found.map(r=>{const path=r.ids.map(i=>data.points[i]);return {...r,path,from:startId,target,height:climb(path,grid)};});
+    if(!found.length){clearPreview();status('Geen lus gevonden');feedback('Hier vonden we geen geschikte lus. Kies een ander startpunt of een andere afstand.');return;}
+    choices=found.map(r=>{const path=r.ids.map(i=>data.points[i]);return {...r,path,from:startId,target,requested:prefs,height:climb(path,grid)};});
     const opts=$('#options');opts.hidden=choices.length<2;
     if(choices.length>1){
       opts.innerHTML='<p>Deze twee rondjes komen het dichtst in de buurt.</p>'+choices.map((r,i)=>'<button type="button" class="button ghost" data-option="'+i+'">'+km(r.meters)+' km · '+(r.height??'—')+' m ↑ · '+reward(r.meters)+' pts</button>').join('');
@@ -121,15 +147,23 @@ function places(){
       setStart(result.id,'Mijn locatie, Gent');closeModal();
     },()=>{note.textContent='Geen locatie beschikbaar. Kies een straat of wijs je startpunt aan op de kaart.';},{enableHighAccuracy:true,timeout:12000});
   };
-  $('#map-pick').onclick=()=>{closeModal();picking=true;feedback('Tik op een straat op de kaart om daar te starten.');$('#map-frame').scrollIntoView({behavior:'smooth',block:'center'});$('#map').focus({preventScroll:true});};
+  $('#map-pick').onclick=()=>{closeModal();setPicking(true);$('#map-frame').scrollIntoView({behavior:'smooth',block:'center'});};
 }
 $('#start-place').onclick=places;
-$('#map').addEventListener('click',e=>{
-  if(!picking||active||!map)return;
-  const rect=e.target.getBoundingClientRect(),x=map.center[0]+(e.clientX-rect.left-rect.width/2)/map.scale,y=map.center[1]-(e.clientY-rect.top-rect.height/2)/map.scale;
-  const nearest=net.nearest([x,y]);if(nearest.gap>100){feedback('Kies een punt dichter bij een begaanbare straat.');return;}
+function pickStartAt(point){
+  const nearest=net.nearest(point);if(nearest.gap>100){toast('Kies een punt dichter bij een begaanbare straat.');return;}
   setStart(nearest.id,'Gekozen punt, Gent');feedback('Startpunt gekozen. Genereer je rondje.');toast('Startpunt gekozen.');
-});
+}
+function setPicking(enabled){
+  picking=enabled;map.onPick=enabled?pickStartAt:null;
+  $('#map-frame').classList.toggle('picking',enabled);$('#pick-start').setAttribute('aria-pressed',String(enabled));
+  if(enabled){
+    feedback('Tik op een straat, of verschuif de kaart en druk op Enter om het midden te kiezen.');
+    $('#map').focus({preventScroll:true});
+  }else feedback('');
+}
+$('#pick-start').onclick=()=>setPicking(!picking);
+$('#map').addEventListener('keydown',e=>{if(picking && e.key==='Escape')setPicking(false);});
 
 function stopGPS(){if(watch!==null){navigator.geolocation.clearWatch(watch);watch=null;}geoNote='';if(map){map.position=null;map.schedule();}}
 function beginGPS(){
@@ -167,12 +201,17 @@ function finish(){
 $('#start-run').onclick=()=>{
   if(active){running();return;}if(!selected||$('#start-run').disabled)return;
   try{
-    active={id:crypto.randomUUID(),began:Date.now(),mode,place,from:startId,meters:selected.meters,height:selected.height,points:reward(selected.meters),path:selected.path,target:selected.target};
+    setPicking(false);
+    active={id:crypto.randomUUID(),began:Date.now(),mode,place,from:startId,meters:selected.meters,height:selected.height,points:reward(selected.meters),path:selected.path,target:selected.target,requested:selected.requested||[],matches:selected.matches||[]};
     write('ongoing',active);
   }catch{active=null;toast('Je browser kan dit rondje niet bewaren. Controleer de lokale opslag.');return;}
   lockControls();status('Rondje actief');running();
 };
-$('#credits').onclick=()=>modal('Kaart & gegevens','<p>De routeplanner gebruikt een lokale kaart van het centrum van Gent. Afstanden volgen de paden op die kaart. Punten worden toegekend wanneer je een rondje als voltooid bevestigt.</p><p>De geschatte tijd rekent met 6 min/km voor lopen en 12 min/km voor wandelen. De stijging is een terreinschatting.</p><p>Activiteiten en opnames worden in deze browser bewaard.</p><p class="fine">Kaart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-bijdragers</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. <a href="gent.json" download>Kaartdata downloaden</a>.<br>Hoogtes: Copernicus GLO-90 via <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.<br>Press Start 2P · <a href="font-license.txt">lettertypelicentie</a>.</p>');
+$('#credits').onclick=()=>modal('Kaart & gegevens',
+  '<p>De routeplanner gebruikt een lokale kaart van het centrum van Gent. Afstanden volgen de paden op die kaart. Punten worden toegekend wanneer je een rondje als voltooid bevestigt.</p>'+
+  '<p>Voor natuur tellen stukken in of langs Gentse parken en tuinen mee. Voor water zoekt de planner paden die langs een rivier of vaart lopen. Architectuur telt mee wanneer je route binnen 55 meter van een van de negen geselecteerde gebouwen komt. De kaartpunten komen van <a href="https://visit.gent.be/nl/zien-doen/bezienswaardigheden/architectuur" target="_blank" rel="noreferrer">Visit Gent</a>.</p>'+
+  '<p>De geschatte tijd rekent met 6 min/km voor lopen en 12 min/km voor wandelen. De stijging is een terreinschatting.</p><p>Activiteiten en opnames worden in deze browser bewaard.</p>'+
+  '<p class="fine">Kaart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-bijdragers</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. <a href="gent.json" download>Kaartdata downloaden</a>.<br>Hoogtes: Copernicus GLO-90 via <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.<br>Press Start 2P · <a href="font-license.txt">lettertypelicentie</a>.</p>');
 async function initialize(){
   $('#start-place').disabled=true;
   try{

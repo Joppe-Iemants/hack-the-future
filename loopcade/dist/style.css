@@ -1,4 +1,17 @@
 @font-face{font-family:Arcade;src:url(pixel.ttf) format("truetype");font-display:swap}
+.preference-list{display:flex;flex-wrap:wrap;gap:7px}
+.preference-list label{display:inline-flex;align-items:center;gap:6px;border:1px solid #464055;background:#201e30;border-radius:4px;padding:5px 9px;color:#d4cddd;cursor:pointer;font-size:14px}
+.preference-list input{margin:0;accent-color:#68f3dc;cursor:pointer}
+.preference-list label:has(:checked){color:#8bf5e3;background:#183434;border-color:#4baba3}
+.preference-list label:focus-within{outline:2px solid white;outline-offset:2px}
+.route-matches{padding:12px 20px;border-top:1px solid #383246;color:#e2ddeb;font-size:14px}
+.route-matches strong{display:block;margin-bottom:4px}.route-matches ul{display:flex;flex-wrap:wrap;gap:4px 16px;list-style:none;padding:0;margin:0}.route-matches .met{color:#8af1d9}.route-matches .miss{color:#ffce82}
+.start-marker{width:27px;height:29px;position:absolute;transform:translate(-50%,-100%);pointer-events:none;z-index:1}
+.start-marker i svg{width:29px;height:32px;fill:#70f4db;stroke:#113a36;stroke-width:1.6;filter:drop-shadow(0 1px 2px #050610)}
+.start-marker span{position:absolute;left:25px;top:3px;display:block;background:#122e2d;color:#a3ffee;padding:3px 6px;border:1px solid #64cfbd;border-radius:3px;white-space:nowrap;font:700 11px/1.2 var(--mono)}
+.start-marker.label-left span{left:auto;right:25px}
+.map-frame.picking canvas{cursor:crosshair}.map-tools{z-index:2}.map-tools button[aria-pressed="true"]{border-color:#63f4df;color:#63f4df;background:#183a38}
+.map-frame.picking:after{content:"+";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;text-shadow:0 1px 4px black;font:20px monospace;pointer-events:none}
 :root{color-scheme:dark;--bg:#0c0c18;--panel:#151523;--border:#36334a;--muted:#b2adc4;--pink:#ff63bf;--aqua:#63f4df;--gold:#ffcf75;--mono:"Courier New",monospace;--pixel:Arcade,monospace}
 *{box-sizing:border-box}
 body{margin:0;background-color:var(--bg);background-image:linear-gradient(#60538c08 1px,transparent 1px),linear-gradient(90deg,#60538c08 1px,transparent 1px);background-size:24px 24px;color:#f2effb;font:16px/1.5 "Segoe UI",Arial,sans-serif}
