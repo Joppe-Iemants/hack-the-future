@@ -1,4 +1,4 @@
-"""Serve Loopcade locally with the correct JavaScript module MIME type."""
+"""Serve plan2run locally with the correct JavaScript module MIME type."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     directory = Path(__file__).resolve().parent / "dist"
     handler = partial(Handler, directory=str(directory))
     with ThreadingHTTPServer(("127.0.0.1", 8000), handler) as server:
-        print("Loopcade: http://localhost:8000 (Ctrl+C om te stoppen)", flush=True)
+        print("plan2run: http://localhost:8000 (Ctrl+C om te stoppen)", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

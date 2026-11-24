@@ -1,6 +1,7 @@
 import {read, write} from './ui.mjs';
 import {firebaseConfig, firebaseIsConfigured, emulatorConfig, FIREBASE_SDK_VERSION} from './firebase-config.mjs';
 import {encodePath, decodePath} from './route-codec.mjs';
+import {preferences as sceneryPreferences} from './scenery.mjs';
 
 const SCHEMA_VERSION = 1;
 const DEFAULT_PREFERENCES = Object.freeze({preferredMode: 'run', preferredDistance: 5000});
@@ -11,6 +12,7 @@ let auth, db, sdk = {}, initialization, migrationPromise, authGeneration = 0;
 
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const cleanText = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
+const sceneryKeys = new Set(sceneryPreferences.map(preference => preference.key));
 
 function normalizeActivity(raw) {
   if (!raw || typeof raw.id !== 'string' || !raw.id || raw.id.length > 128
@@ -32,6 +34,13 @@ function normalizeActivity(raw) {
     target: Math.max(0, finite(raw.target, raw.meters)),
     note: cleanText(raw.note, 500),
     voice: Boolean(raw.voice),
+    requested: Array.isArray(raw.requested) ? [...new Set(raw.requested.filter(key => sceneryKeys.has(key)))] : [],
+    matches: Array.isArray(raw.matches) ? raw.matches.filter(match => sceneryKeys.has(match?.key)).slice(0, sceneryKeys.size).map(match => ({
+      key: match.key,
+      met: Boolean(match.met),
+      meters: Math.max(0, finite(match.meters)),
+      ...(match.key === 'architecture' ? {names: Array.isArray(match.names) ? match.names.slice(0, 20).map(name => cleanText(name, 160)) : []} : {}),
+    })) : [],
     path,
   };
 }

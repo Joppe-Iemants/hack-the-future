@@ -15,7 +15,7 @@ points, ways = {}, {}
 def download(url):
     return subprocess.check_output([
         "curl.exe", "-fsSL", "--retry", "2", "--max-time", "150",
-        "-A", "Loopcade-Ghent-prototype/1.0", url,
+        "-A", "plan2run-Ghent-prototype/1.0", url,
     ])
 
 

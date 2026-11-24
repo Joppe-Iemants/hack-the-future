@@ -1,3 +1,4 @@
+import {profileEdges,assessRoute} from './scenery.mjs';
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 export const reward = meters => 50 + Math.round(meters / 100);
 
@@ -33,19 +34,27 @@ class MinHeap {
 }
 
 export function createNetwork(data) {
-  const graph = new Map(), names = new Map();
-  const connect = (a, b, length) => {
+  const graph = new Map(), names = new Map(), edges=[], edgeByPair=new Map();
+  const pair = (a,b) => Math.min(a,b)*data.points.length+Math.max(a,b);
+  const connect = (a, b, length, index) => {
     if (!graph.has(a)) graph.set(a, []);
-    graph.get(a).push([b, length]);
+    graph.get(a).push([b, length, index]);
   };
-  for (const [, walk, name, ids] of data.ways) {
+  for (const [type, walk, name, ids] of data.ways) {
     if (!walk) continue;
     for (let i = 1; i < ids.length; i++) {
       const a = ids[i - 1], b = ids[i];
       if (a === b) continue;
       const length = Math.max(.1, distance(data.points[a], data.points[b]));
-      connect(a, b, length);
-      connect(b, a, length);
+      const key=pair(a,b);
+      if(edgeByPair.has(key)){
+        if(type==='a')edges[edgeByPair.get(key)].type='a';
+        continue;
+      }
+      const index=edges.length;
+      edges.push({a,b,type,length});edgeByPair.set(key,index);
+      connect(a, b, length, index);
+      connect(b, a, length, index);
     }
     if (name && !names.has(name)) names.set(name, ids[Math.floor(ids.length / 2)]);
   }
@@ -73,24 +82,26 @@ export function createNetwork(data) {
     }
     return {id: best, gap};
   };
-  return {points: data.points, graph, connected, nearest, names};
+  return {data,points: data.points, graph, connected, nearest, names,edges,edgeByPair,pair};
 }
 
-function shortest(network, start, limit) {
-  const cost = new Map([[start, 0]]), prev = new Map(), heap = new MinHeap();
+function shortest(network, start, limit, weights) {
+  const cost = new Map([[start, 0]]), lengths=weights?new Map([[start,0]]):cost, prev = new Map(), heap = new MinHeap();
   heap.add(start, 0);
   while (heap.items.length) {
     const [node, current] = heap.take();
     if (current !== cost.get(node)) continue;
-    for (const [next, length] of network.graph.get(node)) {
-      const alt = current + length;
-      if (alt > limit || alt >= (cost.get(next) ?? Infinity)) continue;
+    const traveled=lengths.get(node);
+    for (const [next, length, index] of network.graph.get(node)) {
+      const meters=traveled+length, alt=weights?current+weights[index]:meters;
+      if (meters > limit || alt >= (cost.get(next) ?? Infinity)) continue;
       cost.set(next, alt);
+      if(weights)lengths.set(next,meters);
       prev.set(next, node);
       heap.add(next, alt);
     }
   }
-  return {cost, prev};
+  return {lengths, prev};
 }
 
 function path(prev, end) {
@@ -99,11 +110,20 @@ function path(prev, end) {
   return list.reverse();
 }
 
-export function makeRoutes(network, start, target, random = Math.random) {
+export function makeRoutes(network, start, target, random = Math.random, requested=[]) {
   const {points} = network;
-  const root = shortest(network, start, target * .74);
+  let weights;
+  if(requested.length){
+    network.profiles??=profileEdges(network.data,network.edges);
+    weights=network.edges.map((edge,i)=>{
+      const meters=network.profiles[i].meters;
+      const preferred=Math.max(...requested.map(key=>meters[key]));
+      return edge.length-.35*preferred;
+    });
+  }
+  const root = shortest(network, start, target * .74, weights);
   const bearings = new Map(), pool = [];
-  for (const [node, length] of root.cost) {
+  for (const [node, length] of root.lengths) {
     if (length < target * .14 || length > target * .55) continue;
     bearings.set(node, Math.atan2(points[node][1] - points[start][1], points[node][0] - points[start][0]));
     pool.push(node);
@@ -115,15 +135,15 @@ export function makeRoutes(network, start, target, random = Math.random) {
     const bearing = angle + i * 2.39996, radius = target * (.27 + random() * .12);
     let anchor, score = Infinity;
     for (const id of pool) {
-      const diff = delta(bearing, bearings.get(id)) + Math.abs(root.cost.get(id) - radius) / radius;
+      const diff = delta(bearing, bearings.get(id)) + Math.abs(root.lengths.get(id) - radius) / radius;
       if (diff < score) {score = diff; anchor = id;}
     }
-    const middle = shortest(network, anchor, target * .62);
+    const middle = shortest(network, anchor, target * .62, weights);
     const choices = [];
     for (const id of pool) {
-      const d = middle.cost.get(id), turn = delta(bearings.get(id), bearings.get(anchor));
+      const d = middle.lengths.get(id), turn = delta(bearings.get(id), bearings.get(anchor));
       if (!d || turn < .65 || turn > 2.65) continue;
-      const meters = root.cost.get(anchor) + d + root.cost.get(id);
+      const meters = root.lengths.get(anchor) + d + root.lengths.get(id);
       choices.push({id, meters, diff: Math.abs(meters - target)});
     }
     choices.sort((a, b) => a.diff - b.diff);
@@ -133,15 +153,17 @@ export function makeRoutes(network, start, target, random = Math.random) {
       const seen = new Set();
       let repeated = 0;
       for (let j = 1; j < ids.length; j++) {
-        const a = ids[j-1], b = ids[j], key = Math.min(a,b) * points.length + Math.max(a,b);
-        if (seen.has(key)) repeated += distance(points[a], points[b]);
-        seen.add(key);
+        const a = ids[j-1], b = ids[j], index=network.edgeByPair.get(network.pair(a,b));
+        if (seen.has(index)) repeated += network.edges[index].length;
+        seen.add(index);
       }
       if (repeated / candidate.meters > .14) continue;
-      results.push({ids, meters: candidate.meters, score: candidate.diff + repeated * .55});
+      const fit=weights?assessRoute(network.profiles,seen,requested,target):{count:0,exposure:0,matches:[]};
+      results.push({ids,meters:candidate.meters,matches:fit.matches,count:fit.count,
+        score:candidate.diff+repeated*.55-target*.12*fit.exposure});
     }
   }
-  results.sort((a, b) => a.score - b.score);
+  results.sort((a,b)=>b.count-a.count || a.score-b.score);
   const tolerance = Math.max(100, target * .05);
   const close = results.find(r => Math.abs(r.meters - target) <= tolerance);
   if (close) return [close];

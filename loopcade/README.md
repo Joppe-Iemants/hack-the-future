@@ -83,10 +83,12 @@ Eenmalig testdependencies installeren (Node.js en Java zijn vereist voor de Fire
 npm install
 npx playwright install chromium
 npm run test:unit
+npm run test:merge
 npm run test:emulator
 ```
 
 - `test:unit` controleert de route-codec en de ongewijzigde routeplanner.
+- `test:merge` controleert de gecombineerde frontend in Chromium: omgevingsvoorkeuren, kaartbediening, lokale opslag, tekstreflecties en herstel van actieve rondjes. Een gesimuleerde accountsessie controleert ook het wisselen van gebruiker. Deze tests wijzigen geen echte Firebase-gegevens.
 - `test:emulator` start tijdelijk Auth en Firestore op poorten 9099 en 8080. Naast anonieme authenticatie en vijf ruleschecks draait een echte Chromium-flow: gastlogin, sessieherstel, activiteit en tekstreflectie, uitloggen, accountscheiding, tweemaal migreren zonder duplicaten, gast koppelen aan Google met behoud van UID, en de afhandeling van een reeds bestaand Google-account. De test start `python serve.py` zelf als poort 8000 nog vrij is.
 - De Emulator UI staat tijdens `npm run emulators` op <http://127.0.0.1:4000>.
 

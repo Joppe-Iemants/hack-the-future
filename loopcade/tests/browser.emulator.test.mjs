@@ -65,6 +65,15 @@ test('browser: gast, Google-koppeling, sessieherstel, cloudreflectie, scheiding 
   await expect(page.locator('#account-status')).toHaveText('Gastaccount', {timeout: 15000});
   assert.equal(await currentUid(page), firstUid, 'dezelfde gast-UID wordt hersteld');
 
+  await page.locator('input[name=scenery][value=nature]').check();
+  await page.locator('#generate').click();
+  await expect(page.locator('#start-run')).toBeEnabled({timeout: 30000});
+  await page.locator('#start-run').click();
+  const ongoingId = await page.evaluate(() => JSON.parse(localStorage.getItem('loopcade-ongoing')).id);
+  await page.reload();
+  await expect(page.locator('#start-run')).toContainText('Rondje bekijken', {timeout: 30000});
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('loopcade-ongoing')).id), ongoingId);
+  await expect(page.locator('input[name=scenery][value=nature]')).toBeChecked();
   await page.locator('#start-run').click();
   await page.locator('#finish').click();
   await expect(page.locator('#note')).toBeVisible({timeout: 15000});
@@ -82,6 +91,11 @@ test('browser: gast, Google-koppeling, sessieherstel, cloudreflectie, scheiding 
   await expect(page.locator('#account-status')).toHaveText('Gastaccount', {timeout: 15000});
   await page.locator('[data-page="activities"]').click();
   await expect(page.locator('[data-note]')).toHaveCount(1);
+
+  const saved = await page.evaluate(async () => (await import('/storage.mjs')).getStorageState().activities[0]);
+  assert.deepEqual(saved.requested, ['nature'], 'omgevingsvoorkeuren blijven in Firestore bewaard');
+  assert.equal(saved.matches[0].key, 'nature');
+  assert.ok(saved.path.length > 1, 'de opgeslagen route wordt uit Firestore herladen');
 
   await page.locator('#account-button').click();
   await page.locator('#logout').click();
