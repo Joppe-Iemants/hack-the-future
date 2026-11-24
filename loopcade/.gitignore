@@ -1,0 +1,11 @@
+node_modules/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.firebase/
+.service-accounts/
+serviceAccount*.json

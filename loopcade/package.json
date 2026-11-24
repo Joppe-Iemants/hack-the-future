@@ -1,0 +1,19 @@
+{
+  "name": "loopcade-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test tests/*.unit.test.mjs",
+    "test:rules": "node --test tests/firestore.rules.test.mjs",
+    "test:auth": "node --test tests/auth.emulator.test.mjs",
+    "test:browser": "node --test tests/browser.emulator.test.mjs",
+    "test:emulator": "firebase emulators:exec --only auth,firestore --project demo-loopcade \"npm run test:rules && npm run test:auth && npm run test:browser\"",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-loopcade"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "@playwright/test": "1.56.1",
+    "firebase": "13.4.0",
+    "firebase-tools": "15.37.0"
+  }
+}

@@ -3,6 +3,8 @@ import {RouteMap} from './map.mjs';
 import {$,icon,modal,closeModal,toast,km,duration,escapeText,read,write} from './ui.mjs';
 import {history,reflection,renderActivities} from './journal.mjs';
 import {renderFriends} from './friends.mjs';
+import {initializeStorage, subscribeStorage, getStorageState, saveActivity, savePreferences, canSaveActivities, storageIdentity} from './storage.mjs';
+import {initializeAccount, openAccount} from './account.mjs';
 
 const popular=[
   ['Korenmarkt',3.7219,51.05442],['Sint-Pietersplein',3.72507,51.04184],['Vrijdagmarkt',3.72524,51.05719],
@@ -11,6 +13,7 @@ const popular=[
 ];
 let data,net,map,grid,startId,selected,choices=[],place='Korenmarkt, Gent',busy=false,picking=false;
 let active=read('ongoing',null),mode='run',watch=null,geoNote='',activeTimer,initial=true;
+let storageState=getStorageState(),identity,preferencesAppliedFor=null,preferenceTimer;
 const distance=()=>Number($('#distance').value)*1000;
 const xy=(lon,lat)=>[(lon-data.origin[0])*data.scale[0],(lat-data.origin[1])*data.scale[1]];
 const plannedTime=r=>Math.max(1,Math.round(r.meters/1000*(mode==='run'?6:12)));
@@ -42,9 +45,21 @@ function updateSlider(){
   if(!active)dirty();
 }
 $('#distance').oninput=updateSlider;
-function applyMode(next){
+$('#distance').onchange=()=>queuePreferences();
+function queuePreferences(){
+  if(!canSaveActivities())return;
+  clearTimeout(preferenceTimer);
+  const targetIdentity=identity;
+  preferenceTimer=setTimeout(()=>{
+    savePreferences({preferredMode:mode,preferredDistance:distance()}).catch(error=>{
+      if(identity===targetIdentity)toast('Je voorkeuren konden niet worden bewaard: '+error.message);
+    });
+  },500);
+}
+function applyMode(next,persist=true){
   mode=next;document.querySelector('input[name=mode][value='+mode+']').checked=true;
   if(selected)updateStats();
+  if(persist)queuePreferences();
 }
 document.querySelectorAll('input[name=mode]').forEach(el=>el.onchange=()=>applyMode(el.value));
 function updateStats(){
@@ -154,38 +169,80 @@ function running(){
     $('#resume').onclick=running;$('#confirm-discard').onclick=()=>{write('ongoing',null);active=null;stopGPS();closeModal();dirty();lockControls();};
   };
 }
-function finish(){
+async function finish(){
   if(!active)return;
-  const item=active,end=Date.now();
+  const item=active,end=Date.now(),button=$('#finish');
+  button.disabled=true;button.textContent='Rondje bewaren…';
   try{
-    const list=history();if(!list.some(a=>a.id===item.id))write('activities',[{...item,end,elapsed:Math.max(0,end-item.began),note:'',voice:false},...list]);
-    write('ongoing',null);
-  }catch{toast('Je rondje kon nog niet worden bewaard. Maak opslagruimte vrij en probeer opnieuw.');return;}
-  active=null;stopGPS();dirty();lockControls();page();toast('Rondje bewaard · +'+item.points+' punten');
+    await saveActivity({...item,end,elapsed:Math.max(0,end-item.began),note:'',voice:false});
+  }catch(error){
+    console.error('Loopcade rondje bewaren:',error);
+    if($('#finish')){$('#finish').disabled=false;$('#finish').innerHTML=icon('flag')+'Opnieuw bewaren';}
+    toast('Je rondje is nog niet bewaard: '+error.message);return;
+  }
+  if(active?.id!==item.id)return;
+  write('ongoing',null);active=null;stopGPS();dirty();lockControls();page();toast('Rondje bewaard · +'+item.points+' punten');
   reflection(item.id,page,true);
 }
 $('#start-run').onclick=()=>{
   if(active){running();return;}if(!selected||$('#start-run').disabled)return;
+  if(!canSaveActivities()){openAccount();toast('Log in of ga als gast verder om je rondje te bewaren.');return;}
   try{
-    active={id:crypto.randomUUID(),began:Date.now(),mode,place,from:startId,meters:selected.meters,height:selected.height,points:reward(selected.meters),path:selected.path,target:selected.target};
+    active={id:crypto.randomUUID(),began:Date.now(),mode,place,from:startId,meters:selected.meters,height:selected.height,points:reward(selected.meters),path:selected.path,target:selected.target,ownerUid:storageIdentity()};
     write('ongoing',active);
   }catch{active=null;toast('Je browser kan dit rondje niet bewaren. Controleer de lokale opslag.');return;}
   lockControls();status('Rondje actief');running();
 };
-$('#credits').onclick=()=>modal('Kaart & gegevens','<p>De routeplanner gebruikt een lokale kaart van het centrum van Gent. Afstanden volgen de paden op die kaart. Punten worden toegekend wanneer je een rondje als voltooid bevestigt.</p><p>De geschatte tijd rekent met 6 min/km voor lopen en 12 min/km voor wandelen. De stijging is een terreinschatting.</p><p>Activiteiten en opnames worden in deze browser bewaard.</p><p class="fine">Kaart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-bijdragers</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. <a href="gent.json" download>Kaartdata downloaden</a>.<br>Hoogtes: Copernicus GLO-90 via <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.<br>Press Start 2P · <a href="font-license.txt">lettertypelicentie</a>.</p>');
+$('#credits').onclick=()=>modal('Kaart & gegevens','<p>De routeplanner gebruikt een lokale kaart van het centrum van Gent. Afstanden volgen de paden op die kaart. Punten worden toegekend wanneer je een rondje als voltooid bevestigt.</p><p>De geschatte tijd rekent met 6 min/km voor lopen en 12 min/km voor wandelen. De stijging is een terreinschatting.</p><p>Met Firebase worden activiteiten en tekstreflecties per account in Firestore bewaard. Zonder configuratie blijven activiteiten lokaal. Audio-opnames blijven altijd alleen op dit toestel.</p><p class="fine">Kaart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-bijdragers</a>, <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>. <a href="gent.json" download>Kaartdata downloaden</a>.<br>Hoogtes: Copernicus GLO-90 via <a href="https://open-meteo.com/en/docs/elevation-api" target="_blank" rel="noreferrer">Open-Meteo</a>.<br>Press Start 2P · <a href="font-license.txt">lettertypelicentie</a>.</p>');
+function clearAccountActivity(){
+  clearTimeout(preferenceTimer);
+  if(active){active=null;write('ongoing',null);stopGPS();}
+  selected=null;choices=[];
+  if(map){map.setRoute([]);map.draw();}
+  $('#options').hidden=true;
+  for(const key of ['distance','time','height','points'])$('#stat-'+key).textContent='—';
+  $('#difficulty').textContent='Kies een nieuw rondje';
+  if($('#dialog').dataset.account!=='true')closeModal();
+  dirty();lockControls();
+  if(net)generate();
+}
+function storageChanged(next){
+  storageState=next;
+  const nextIdentity=storageIdentity();
+  if(identity!==undefined&&identity!==nextIdentity){preferencesAppliedFor=null;clearAccountActivity();}
+  identity=nextIdentity;
+  if(next.status==='ready'&&next.user&&preferencesAppliedFor!==next.user.uid){
+    preferencesAppliedFor=next.user.uid;
+    if(!active){
+      const preferences=next.preferences;
+      $('#distance').value=Math.max(1,Math.min(12,preferences.preferredDistance/1000));
+      applyMode(preferences.preferredMode,false);updateSlider();
+    }
+  }
+  page();
+}
 async function initialize(){
   $('#start-place').disabled=true;
+  const storageReady=initializeStorage();
   try{
     const get=async file=>{const r=await fetch(file);if(!r.ok)throw Error(file);return r.json();};
     [data,grid]=await Promise.all([get('gent.json'),get('height.json').catch(()=>null)]);
     net=createNetwork(data);map=new RouteMap($('#map'),data);setStart(net.nearest(xy(popular[0][1],popular[0][2])).id,place);
+    // Een actief rondje mag pas worden hersteld als de eigenaar door auth bekend is.
+    if(active)await storageReady;
+    const currentIdentity=storageIdentity();
+    if(active&&!active.ownerUid&&currentIdentity==='local')active.ownerUid='local';
+    if(active&&active.ownerUid!==currentIdentity){active=null;write('ongoing',null);}
     if(active&&history().some(a=>a.id===active.id)){active=null;write('ongoing',null);}
     if(active){
-      setStart(active.from,active.place);$('#distance').value=active.target/1000;applyMode(active.mode);updateSlider();selectRoute(active);lockControls();
+      setStart(active.from,active.place);$('#distance').value=active.target/1000;applyMode(active.mode,false);updateSlider();selectRoute(active);lockControls();
     }else await generate();
     page();
-  }catch{
+  }catch(error){
+    console.error('Loopcade initialisatie:',error);
     status('Kaart niet geladen');feedback('De kaart kon niet worden geladen. Vernieuw de pagina om opnieuw te proberen.');$('#generate').disabled=true;
   }
 }
+initializeAccount();
+subscribeStorage(storageChanged);
 page();updateSlider();initialize();

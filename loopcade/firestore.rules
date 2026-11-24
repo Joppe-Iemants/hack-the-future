@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if owns(uid);
+
+      match /activities/{activityId} {
+        allow read, write: if owns(uid);
+      }
+
+      match /routes/{activityId} {
+        allow read, write: if owns(uid);
+      }
+    }
+
+    // Alles buiten de eigen gebruikersdocumenten blijft expliciet geweigerd.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
