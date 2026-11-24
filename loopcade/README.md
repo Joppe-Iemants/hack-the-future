@@ -104,27 +104,16 @@ De emulator-tests dekken de volledige gast-, Google-popup-, sessie-, opslag-, sc
 4. Audio-opname met microfoon en de accountscheiding van audio op een gedeeld toestel; de geautomatiseerde browserflow gebruikt geen echte microfoon.
 5. De routeplanner op je eigen doelbrowsers en mobiele schermformaten.
 
-AI en transcriptie vallen buiten deze implementatie. Firebase-audio blijft op het toestel; de Firebase-app heeft nog geen gedeelde sociale backend.
+AI en transcriptie vallen buiten deze implementatie. Firebase-audio blijft op het toestel; de demovrienden worden per gebruiker in Firestore bewaard.
 
-## Lokale vriendendemo uit de nieuwe pull
+## Vrienden via Firebase
 
-De bestaande Firebase-app blijft op `/`. De nieuwe versie met gebruikersnaam/wachtwoord, demoaccounts, vriendenverzoeken, feed, gedeelde routekaarten en serveraudio staat op `/local/`. Open `/login.html` om daarvoor in te loggen of **Probeer de demo** te kiezen. Vanuit de Firebase-app staan links onder Account en Vrienden.
+Er is nog maar één app en één inlogsysteem: Firebase Google-/gastlogin op `/`. De aparte SQLite-demo, registratiepagina en lokale account-API zijn verwijderd. Oude links naar `/local/` en `/login.html` verwijzen bij de Python-server naar de hoofdapp.
 
-Deze twee versies gebruiken aparte accounts en gegevens. De lokale demo schrijft naar `data/plan2run.sqlite3` op de Python-server, niet naar Firestore. De Firebase-app behoudt Google-/gastlogin, Firestore-opslag, migratie en lokale audio. Er worden geen gegevens automatisch tussen beide versies overgezet. Bestaande lokale gegevens kunnen uitsluitend via de expliciete importknoppen worden overgenomen.
+Bij de eerste opening van **Vrienden** worden drie fictieve vrienden met voorbeeldactiviteiten opgeslagen in `users/{uid}.demoFriends`: Noor en Milan zijn al vrienden; Yara heeft een openstaand verzoek. Dit gebeurt in een Firestore-transactie, zodat herladen of een tweede tab geen duplicaten maakt en bestaande keuzes niet worden overschreven. Accepteren, weigeren en opnieuw toevoegen worden in hetzelfde document bewaard.
 
-Start beide versies met dezelfde server:
+De feed en het klassement tonen deze herkenbaar gemarkeerde voorbeeldpersonen. Routekaarten gebruiken vaste Gentse voorbeeldroutes en verbergen de zone binnen 350 meter van het startpunt. Deze gegevens bevatten geen echte gebruikerslocaties, tekstreflecties of audio. Het betreft drie vaste demofiguren, geen zoekfunctie voor echte gebruikers of gedeelde toegang tot hun profielen.
 
-```powershell
-python serve.py
-# Of op een andere poort:
-python serve.py --port 8049
-```
+De bestaande eigenaarregels voor `users/{uid}` volstaan; er zijn geen publieke collecties, extra rechten of nieuwe regels nodig. De demovrienden worden pas in het echte Firebase-project aangemaakt wanneer een ingelogde gebruiker de vriendenpagina opent. De geautomatiseerde tests gebruiken uitsluitend het emulatorproject.
 
-Na een serverupdate moet een eerder draaiende `serve.py` worden gestopt en opnieuw gestart, zodat de nieuwe `/api/`-routes beschikbaar zijn. De SQLite-database blijft bij een herstart behouden. JavaScript, vormgeving en de Gentse kaartdata worden door beide versies gedeeld zonder een tweede kopie van de kaartdata.
-
-Extra regressiecontroles voor de lokale demo (tijdelijke database, geen gebruikersgegevens):
-
-```powershell
-python -m unittest -v test_plan2run
-npm run test:local
-```
+Starten blijft `python serve.py` (optioneel `--port 8049`). Herstart een nog draaiende server na deze update. Een eventueel oud bestand in `data/` wordt niet meer gebruikt; bestaande gegevens zijn niet verwijderd.

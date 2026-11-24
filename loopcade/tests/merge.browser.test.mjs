@@ -52,6 +52,8 @@ async function openApp({cloud = false, localActivities = []} = {}) {
       export const linkGuestToGoogle=async()=>{};
       export const signOutUser=async()=>globalThis.switchTestUser(null);
       export const migrateLocalActivities=async()=>{};
+      export const loadDemoFriends=async()=>[];
+      export const updateDemoFriend=async()=>{};
     `});
     try {
       const body = await readFile(new URL(name, dist));
@@ -112,7 +114,7 @@ test('merge: new map controls, scenery, local activity and reflection survive re
     await expect(page.locator('#note')).toHaveValue('Merge-test: mooi park.');
     await page.locator('#dialog-close').click();
     await page.locator('[data-page=friends]').click();
-    await expect(page.locator('#export-card')).toBeVisible();
+    await expect(page.locator('#friends-login')).toBeVisible();
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

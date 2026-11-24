@@ -2,6 +2,7 @@ import {read, write} from './ui.mjs';
 import {firebaseConfig, firebaseIsConfigured, emulatorConfig, FIREBASE_SDK_VERSION} from './firebase-config.mjs';
 import {encodePath, decodePath} from './route-codec.mjs';
 import {preferences as sceneryPreferences} from './scenery.mjs';
+import {createDemoFriends} from './demo-friends.mjs';
 
 const SCHEMA_VERSION = 1;
 const DEFAULT_PREFERENCES = Object.freeze({preferredMode: 'run', preferredDistance: 5000});
@@ -224,6 +225,42 @@ async function requireAuth() {
   await initializeStorage();
   if (!auth?.currentUser) throw new Error('Log in of ga als gast verder om je rondje te bewaren.');
   return auth.currentUser;
+}
+
+// Three fictional friends are a bounded part of the private user document.
+// This works with the existing owner-only Firestore rules.
+export async function loadDemoFriends() {
+  if (!configured) throw new Error('Configureer Firebase om je vrienden te bewaren.');
+  const user = await requireAuth();
+  const reference = sdk.doc(db, 'users', user.uid);
+  const friends = await sdk.runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(reference);
+    const existing = snapshot.data()?.demoFriends;
+    if (existing) return existing;
+    const seeded = createDemoFriends();
+    transaction.set(reference, {demoFriends: seeded, demoFriendsVersion: 1}, {merge: true});
+    return seeded;
+  });
+  if (auth.currentUser?.uid !== user.uid) throw new Error('Je bent van account gewisseld.');
+  return Object.values(friends);
+}
+
+export async function updateDemoFriend(id, action) {
+  const user = await requireAuth();
+  if (!user) throw new Error('Log eerst in.');
+  const reference = sdk.doc(db, 'users', user.uid);
+  await sdk.runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(reference);
+    const friends = snapshot.data()?.demoFriends || {};
+    const friend = friends[id];
+    if (!friend?.isDemo) throw new Error('Deze demovriend is niet beschikbaar.');
+    let status;
+    if (action === 'accept' && friend.status === 'pending') status = 'accepted';
+    else if (action === 'decline' && friend.status === 'pending') status = 'declined';
+    else if (action === 'request' && friend.status === 'declined') status = 'accepted';
+    else throw new Error('Dit verzoek is al verwerkt. Vernieuw je vriendenlijst.');
+    transaction.update(reference, {demoFriends: {...friends, [id]: {...friend, status}}});
+  });
 }
 
 export async function signInWithGoogle({linkGuest = true} = {}) {

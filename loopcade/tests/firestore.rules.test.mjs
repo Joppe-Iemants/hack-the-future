@@ -55,3 +55,12 @@ test('onbekende collecties blijven standaard geweigerd', async () => {
   await assertFails(getDoc(doc(db, 'public/alice')));
   await assertFails(setDoc(doc(db, 'users/alice/activities/run-1/extra/document'), {value: true}));
 });
+
+test('demovrienden op een gebruikersprofiel blijven privé voor dat account', async () => {
+  const alice = environment.authenticatedContext('alice').firestore();
+  const bob = environment.authenticatedContext('bob').firestore();
+  await assertSucceeds(setDoc(doc(alice, 'users/alice'), {demoFriends: {'demo-yara': {status: 'accepted'}}}));
+  await assertSucceeds(getDoc(doc(alice, 'users/alice')));
+  await assertFails(getDoc(doc(bob, 'users/alice')));
+  await assertFails(setDoc(doc(bob, 'users/alice'), {demoFriends: {}}, {merge: true}));
+});

@@ -136,7 +136,7 @@ function bindDialogActions() {
 
 function renderAccountDialog() {
   if ($('#dialog').dataset.account !== 'true') return;
-  modal('Jouw plan2run-account', dialogMarkup(getStorageState())+'<hr><a class="button ghost" href="/login.html">Lokale vriendendemo</a><p class="fine">De demo gebruikt aparte lokale accounts en opslag op de Python-server.</p>', () => { delete $('#dialog').dataset.account; });
+  modal('Jouw plan2run-account', dialogMarkup(getStorageState()), () => { delete $('#dialog').dataset.account; });
   $('#dialog').dataset.account = 'true';
   bindDialogActions();
   if (actionError) setDialogError(actionError, showExistingLogin);

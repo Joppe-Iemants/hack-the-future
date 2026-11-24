@@ -65,6 +65,28 @@ test('browser: gast, Google-koppeling, sessieherstel, cloudreflectie, scheiding 
   await expect(page.locator('#account-status')).toHaveText('Gastaccount', {timeout: 15000});
   assert.equal(await currentUid(page), firstUid, 'dezelfde gast-UID wordt hersteld');
 
+  // The single Firebase app seeds sample friends once and persists choices.
+  await page.locator('[data-page="friends"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(2);
+  await expect(page.locator('#feed [data-friend-route]')).toHaveCount(4);
+  await page.locator('#feed [data-friend-route]').first().click();
+  await expect(page.locator('#friend-map')).toBeVisible();
+  await expect.poll(() => page.locator('#friend-map').getAttribute('width')).toBe('860');
+  await page.locator('#dialog-close').click();
+  await page.locator('#friend-requests [data-action="decline"]').click();
+  await expect(page.locator('#friend-requests [data-action]')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#people .activity-row')).toHaveCount(2, {timeout: 15000});
+  await expect(page.locator('#friend-requests [data-action]')).toHaveCount(0);
+  await page.locator('#people-search').fill('Yara');
+  await page.locator('#suggestions [data-action="request"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(3);
+  const sampleFriends = await page.evaluate(async () => (await import('/storage.mjs')).loadDemoFriends());
+  assert.equal(sampleFriends.length, 3);
+  assert.equal(sampleFriends.find(friend => friend.id === 'demo-yara').status, 'accepted');
+  await page.locator('[data-page="planner"]').click();
+  await expect(page.locator('#start-run')).toBeEnabled({timeout: 30000});
+
   await page.locator('input[name=scenery][value=nature]').check();
   await page.locator('#generate').click();
   await expect(page.locator('#start-run')).toBeEnabled({timeout: 30000});
@@ -106,6 +128,13 @@ test('browser: gast, Google-koppeling, sessieherstel, cloudreflectie, scheiding 
   await guestLogin(page);
   const secondUid = await currentUid(page);
   assert.notEqual(secondUid, firstUid, 'een nieuwe gast krijgt geen gegevens van de vorige gast');
+  await page.locator('[data-page="friends"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(2);
+  await expect(page.locator('#friend-requests [data-action="accept"]')).toHaveCount(1);
+  await page.locator('#friend-requests [data-action="accept"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(3);
+  await page.reload();
+  await expect(page.locator('#people .activity-row')).toHaveCount(3, {timeout: 15000});
   await page.locator('[data-page="activities"]').click();
   await expect(page.locator('[data-note]')).toHaveCount(0);
 
