@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="nl-BE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0c0c18"><title>plan2run · Inloggen</title><link rel="icon" href="logo.svg"><link rel="stylesheet" href="style.css"></head>
+<body class="auth-page">
+  <header class="top"><div class="shell top-inner"><a class="brand" href="/"><img src="logo.svg" width="39" height="39" alt=""><span>plan<span>2run</span></span></a></div></header>
+  <main class="shell auth-layout">
+    <section class="auth-art"><canvas id="skyline" aria-hidden="true"></canvas><div><h1>Loop je<br>eigen rondje.</h1><p>Ontdek een nieuw rondje in Gent en volg de activiteiten van je vrienden.</p></div></section>
+    <section class="panel auth-card" aria-labelledby="auth-title">
+      <div class="auth-tabs"><button id="tab-login" aria-pressed="true" disabled>Inloggen</button><button id="tab-signup" aria-pressed="false" disabled>Registreren</button></div>
+      <h2 id="auth-title">Welkom terug</h2>
+      <form id="auth-form" class="stack">
+        <label id="display-wrap" hidden>Weergavenaam<input class="input" id="display" maxlength="36" minlength="2" autocomplete="nickname"></label>
+        <label>Gebruikersnaam<input class="input" id="handle" maxlength="24" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+        <label>Wachtwoord<input class="input" type="password" id="password" maxlength="200" autocomplete="current-password" required></label>
+        <button class="button aqua wide" id="auth-submit" disabled>Inloggen</button>
+      </form>
+      <p class="error" role="status" id="auth-error"></p>
+      <div class="demo-entry"><button class="button ghost wide" id="demo" disabled>Probeer de demo</button><p>Ontdek rondjes, terugblikken en vrienden met een gevuld demoaccount.</p></div>
+    </section>
+  </main><script src="skyline.js"></script><script type="module" src="login.mjs"></script>
+</body></html>

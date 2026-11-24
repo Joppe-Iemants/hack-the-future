@@ -1,18 +1,29 @@
 import {$,icon,modal,closeModal,toast,km,duration,escapeText,read,write,periodStart,speak} from './ui.mjs';
+import {api,history,player,remember,currentRun,storeRun} from './account.mjs';
 
-export const history=()=>read('activities',[]);
+export {history};
 const dateLabel=time=>new Date(time).toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
-async function audioStore(id,blob) {
+async function legacyClip(id) {
   const db=await new Promise((resolve,reject)=>{
     const req=indexedDB.open('loopcade-audio',1);
     req.onupgradeneeded=()=>req.result.createObjectStore('clips');
     req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
   });
   try{return await new Promise((resolve,reject)=>{
-    const tx=db.transaction('clips',blob?'readwrite':'readonly'),store=tx.objectStore('clips');
-    const req=blob?store.put(blob,id):store.get(id);
+    const tx=db.transaction('clips','readonly'),store=tx.objectStore('clips');
+    const req=store.get(id);
     tx.oncomplete=()=>resolve(req.result);tx.onabort=tx.onerror=()=>reject(tx.error);
   });}finally{db.close();}
+}
+async function audioStore(id){
+  const res=await fetch('/api/clip?id='+encodeURIComponent(id),{headers:{'X-Player':String(player.id)}});
+  if(!res.ok)throw Error('De opname kon niet worden geladen.');
+  return res.blob();
+}
+async function clipData(blob){
+  if(!blob)return {};
+  const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+  return {clip:url.split(',')[1],mime:blob.type};
 }
 
 export function reflection(id,onSaved,prompt=false){
@@ -31,7 +42,7 @@ export function reflection(id,onSaved,prompt=false){
     $('#clip-preview audio').src=url;
   };
   let pending=null;
-  audioStore(id).then(b=>{if(!pending)preview(b);}).catch(()=>{});
+  if(item.voice)audioStore(id).then(b=>{if(!pending)preview(b);}).catch(()=>{if(!closed)$('#clip-state').textContent='Je opname kon niet worden geladen.';});
   if(prompt)speak(question);
   $('#hear-question').onclick=()=>speak(question);
   $('#skip-note').onclick=closeModal;
@@ -58,10 +69,9 @@ export function reflection(id,onSaved,prompt=false){
   $('#save-note').onclick=async()=>{
     const text=$('#note').value.trim(),button=$('#save-note');button.disabled=true;
     try{
-      if(pending)await audioStore(id,pending);
-      const all=history(),record=all.find(a=>a.id===id);record.note=text;record.voice=Boolean(pending)||record.voice;
-      write('activities',all);closeModal();onSaved();toast('Je terugblik is bewaard.');
-    }catch{$('#clip-state').textContent='Bewaren lukte niet. Controleer de vrije opslagruimte en probeer opnieuw.';button.disabled=false;}
+      await api('note',{id,note:text,...await clipData(pending)});
+      remember({...item,note:text,voice:Boolean(pending)||item.voice});closeModal();onSaved();toast('Je terugblik is bewaard.');
+    }catch(error){if(!closed){$('#clip-state').textContent=error.message;button.disabled=false;}}
   };
 }
 function speechSynthesisSafeCancel(){window.speechSynthesis?.cancel();}
@@ -106,4 +116,32 @@ export function renderActivities(){
     '<article class="panel full"><h2 class="panel-heading">'+icon('activity')+'Recente activiteiten</h2><div class="section-content">'+(list.length?'<div class="stack">'+list.map(a=>'<div class="activity-row"><div><strong>'+icon(a.mode==='run'?'run':'walk')+' '+(a.mode==='run'?'Lopen':'Wandelen')+' · '+km(a.meters)+' km</strong><span>'+escapeText(a.place)+' · '+dateLabel(a.end)+' · '+duration(a.elapsed)+' · +'+a.points+' pts</span></div><button data-note="'+escapeText(a.id)+'" class="button ghost">'+icon('mic')+'Terugblik</button></div>').join('')+'</div>':'<p>Na je eerste rondje vind je hier je afstand, tijd en punten.</p><a class="button aqua" href="#planner">Plan mijn rondje</a>')+'</div></article></div>';
   $('#week-recap').onclick=()=>recap('week');$('#month-recap').onclick=()=>recap('month');
   document.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>reflection(b.dataset.note,renderActivities));
+  for(const button of document.querySelectorAll('[data-note]')){
+    const a=list.find(item=>item.id===button.dataset.note),label=document.createElement('label');
+    label.className='share-toggle';label.innerHTML='<input type="checkbox"> Zichtbaar voor vrienden';
+    const check=label.querySelector('input');check.checked=a.shared;button.before(label);
+    check.onchange=async()=>{check.disabled=true;try{await api('sharing',{id:a.id,shared:check.checked});remember({...a,shared:check.checked});}catch(e){check.checked=a.shared;toast(e.message);}finally{check.disabled=false;}};
+  }
+  const legacy=read('activities',[]),ongoing=read('ongoing',null),owner=read('legacy-owner',null);
+  if(player.kind==='user' && (!owner||owner===player.id) && !read('legacy-done',false) && (legacy.length||ongoing)){
+    const importBtn=document.createElement('button');importBtn.className='button ghost';
+    importBtn.textContent='Eerdere rondjes van dit toestel overnemen';$('#activities').prepend(importBtn);
+    importBtn.onclick=()=>{
+      modal('Rondjes overnemen','<p>Voeg je eerdere lokale rondjes, privénotities en opnames toe aan dit account. Je bepaalt achteraf welke activiteiten je deelt.</p><button class="button aqua" id="claim-local">Overnemen in mijn account</button><p class="error" id="claim-error"></p>');
+      $('#claim-local').onclick=async e=>{
+        const b=e.currentTarget;b.disabled=true;
+        try{
+          if(ongoing&&currentRun())throw Error('Rond je huidige activiteit eerst af.');
+          write('legacy-owner',player.id);
+          for(const a of legacy){
+            const row=await api('import-activity',a);
+            if(a.voice){const blob=await legacyClip(a.id);if(blob)await api('note',{id:a.id,note:a.note||'',...await clipData(blob)});}
+            remember(row);
+          }
+          if(ongoing && !history().some(a=>a.id===ongoing.id))storeRun({...ongoing,shared:false});
+          write('legacy-done',true);location.reload();
+        }catch(error){$('#claim-error').textContent=error.message;b.disabled=false;}
+      };
+    };
+  }
 }
