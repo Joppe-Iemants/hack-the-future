@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import {$,icon,modal,closeModal,toast,km,duration,escapeText,periodStart,speak} from './ui.mjs';
 import {getStorageState, saveReflection, readLocalActivities} from './storage.mjs';
 import {readAudio, writeAudio} from './audio.mjs';
@@ -6,35 +5,6 @@ import {openAccount, migrateLocalData} from './account.mjs';
 
 export const history=()=>getStorageState().activities.map(item=>({...item}));
 const dateLabel=time=>new Date(time).toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
-=======
-import {$,icon,modal,closeModal,toast,km,duration,escapeText,read,write,periodStart,speak} from './ui.mjs';
-import {api,history,player,remember,currentRun,storeRun} from './account.mjs';
-
-export {history};
-const dateLabel=time=>new Date(time).toLocaleDateString('nl-BE',{weekday:'short',day:'numeric',month:'short'});
-async function legacyClip(id) {
-  const db=await new Promise((resolve,reject)=>{
-    const req=indexedDB.open('loopcade-audio',1);
-    req.onupgradeneeded=()=>req.result.createObjectStore('clips');
-    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
-  });
-  try{return await new Promise((resolve,reject)=>{
-    const tx=db.transaction('clips','readonly'),store=tx.objectStore('clips');
-    const req=store.get(id);
-    tx.oncomplete=()=>resolve(req.result);tx.onabort=tx.onerror=()=>reject(tx.error);
-  });}finally{db.close();}
-}
-async function audioStore(id){
-  const res=await fetch('/api/clip?id='+encodeURIComponent(id),{headers:{'X-Player':String(player.id)}});
-  if(!res.ok)throw Error('De opname kon niet worden geladen.');
-  return res.blob();
-}
-async function clipData(blob){
-  if(!blob)return {};
-  const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
-  return {clip:url.split(',')[1],mime:blob.type};
-}
->>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6
 
 export function reflection(id,onSaved,prompt=false){
   const item=history().find(a=>a.id===id);if(!item)return;
@@ -52,14 +22,10 @@ export function reflection(id,onSaved,prompt=false){
     $('#clip-preview audio').src=url;
   };
   let pending=null;
-<<<<<<< HEAD
   readAudio(id).then(b=>{
     if(pending)return;
     if(b)preview(b);else if(item.voice)$('#clip-state').textContent='Deze activiteit vermeldt audio, maar op dit toestel is geen bijbehorende opname gevonden.';
   }).catch(()=>{if(!closed)$('#clip-state').textContent='Lokale audio kan nu niet worden geopend. Je tekst kun je wel bewaren.';});
-=======
-  if(item.voice)audioStore(id).then(b=>{if(!pending)preview(b);}).catch(()=>{if(!closed)$('#clip-state').textContent='Je opname kon niet worden geladen.';});
->>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6
   if(prompt)speak(question);
   $('#hear-question').onclick=()=>speak(question);
   $('#skip-note').onclick=closeModal;
@@ -87,7 +53,6 @@ export function reflection(id,onSaved,prompt=false){
     const text=$('#note').value.trim(),button=$('#save-note');button.disabled=true;
     $('#clip-state').textContent='Terugblik bewaren…';
     try{
-<<<<<<< HEAD
       if(pending)await writeAudio(id,pending);
       await saveReflection(id,{note:text,voice:Boolean(pending)||item.voice});
       closeModal();await onSaved?.();toast('Je terugblik is bewaard.');
@@ -95,11 +60,6 @@ export function reflection(id,onSaved,prompt=false){
       console.error('Loopcade terugblik bewaren:',error);
       $('#clip-state').textContent='Bewaren lukte niet. Je wijziging is niet als opgeslagen gemarkeerd. Controleer je verbinding of lokale opslag en probeer opnieuw.';button.disabled=false;
     }
-=======
-      await api('note',{id,note:text,...await clipData(pending)});
-      remember({...item,note:text,voice:Boolean(pending)||item.voice});closeModal();onSaved();toast('Je terugblik is bewaard.');
-    }catch(error){if(!closed){$('#clip-state').textContent=error.message;button.disabled=false;}}
->>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6
   };
 }
 function speechSynthesisSafeCancel(){window.speechSynthesis?.cancel();}
@@ -164,32 +124,4 @@ export function renderActivities(){
   };
   $('#week-recap').onclick=()=>recap('week');$('#month-recap').onclick=()=>recap('month');
   document.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>reflection(b.dataset.note,renderActivities));
-  for(const button of document.querySelectorAll('[data-note]')){
-    const a=list.find(item=>item.id===button.dataset.note),label=document.createElement('label');
-    label.className='share-toggle';label.innerHTML='<input type="checkbox"> Zichtbaar voor vrienden';
-    const check=label.querySelector('input');check.checked=a.shared;button.before(label);
-    check.onchange=async()=>{check.disabled=true;try{await api('sharing',{id:a.id,shared:check.checked});remember({...a,shared:check.checked});}catch(e){check.checked=a.shared;toast(e.message);}finally{check.disabled=false;}};
-  }
-  const legacy=read('activities',[]),ongoing=read('ongoing',null),owner=read('legacy-owner',null);
-  if(player.kind==='user' && (!owner||owner===player.id) && !read('legacy-done',false) && (legacy.length||ongoing)){
-    const importBtn=document.createElement('button');importBtn.className='button ghost';
-    importBtn.textContent='Eerdere rondjes van dit toestel overnemen';$('#activities').prepend(importBtn);
-    importBtn.onclick=()=>{
-      modal('Rondjes overnemen','<p>Voeg je eerdere lokale rondjes, privénotities en opnames toe aan dit account. Je bepaalt achteraf welke activiteiten je deelt.</p><button class="button aqua" id="claim-local">Overnemen in mijn account</button><p class="error" id="claim-error"></p>');
-      $('#claim-local').onclick=async e=>{
-        const b=e.currentTarget;b.disabled=true;
-        try{
-          if(ongoing&&currentRun())throw Error('Rond je huidige activiteit eerst af.');
-          write('legacy-owner',player.id);
-          for(const a of legacy){
-            const row=await api('import-activity',a);
-            if(a.voice){const blob=await legacyClip(a.id);if(blob)await api('note',{id:a.id,note:a.note||'',...await clipData(blob)});}
-            remember(row);
-          }
-          if(ongoing && !history().some(a=>a.id===ongoing.id))storeRun({...ongoing,shared:false});
-          write('legacy-done',true);location.reload();
-        }catch(error){$('#claim-error').textContent=error.message;b.disabled=false;}
-      };
-    };
-  }
 }

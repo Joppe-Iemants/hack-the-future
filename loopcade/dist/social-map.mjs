@@ -1,5 +1,5 @@
 let city;
-export function cityMap(){return city??=fetch('gent.json').then(r=>{if(!r.ok)throw Error('Kaart niet beschikbaar.');return r.json();}).catch(e=>{city=null;throw e;});}
+export function cityMap(){return city??=fetch('/gent.json').then(r=>{if(!r.ok)throw Error('Kaart niet beschikbaar.');return r.json();}).catch(e=>{city=null;throw e;});}
 export async function drawRouteMap(canvas,lines){
   const data=await cityMap();
   if(!canvas.isConnected)return;

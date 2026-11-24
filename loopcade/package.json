@@ -5,6 +5,7 @@
   "scripts": {
     "test:unit": "node --test tests/*.unit.test.mjs",
     "test:merge": "node --test tests/merge.browser.test.mjs",
+    "test:local": "node --test tests/local.browser.test.mjs",
     "test:rules": "node --test tests/firestore.rules.test.mjs",
     "test:auth": "node --test tests/auth.emulator.test.mjs",
     "test:browser": "node --test tests/browser.emulator.test.mjs",

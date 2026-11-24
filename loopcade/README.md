@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-# Loopcade — Firebase Authentication en Firestore
+# plan2run — Firebase Authentication en Firestore
 
 Loopcade blijft een statische ES-module-app zonder framework. Starten gaat nog steeds met de bestaande Python-server, die de juiste JavaScript-MIME-types en `Cache-Control: no-store` instelt.
 
@@ -105,23 +104,27 @@ De emulator-tests dekken de volledige gast-, Google-popup-, sessie-, opslag-, sc
 4. Audio-opname met microfoon en de accountscheiding van audio op een gedeeld toestel; de geautomatiseerde browserflow gebruikt geen echte microfoon.
 5. De routeplanner op je eigen doelbrowsers en mobiele schermformaten.
 
-AI, transcriptie, cloudaudio en een sociale backend vallen bewust buiten deze implementatie.
-=======
-# plan2run lokaal starten
+AI en transcriptie vallen buiten deze implementatie. Firebase-audio blijft op het toestel; de Firebase-app heeft nog geen gedeelde sociale backend.
 
-Start vanuit deze map de app met Python 3.10 of hoger.
+## Lokale vriendendemo uit de nieuwe pull
+
+De bestaande Firebase-app blijft op `/`. De nieuwe versie met gebruikersnaam/wachtwoord, demoaccounts, vriendenverzoeken, feed, gedeelde routekaarten en serveraudio staat op `/local/`. Open `/login.html` om daarvoor in te loggen of **Probeer de demo** te kiezen. Vanuit de Firebase-app staan links onder Account en Vrienden.
+
+Deze twee versies gebruiken aparte accounts en gegevens. De lokale demo schrijft naar `data/plan2run.sqlite3` op de Python-server, niet naar Firestore. De Firebase-app behoudt Google-/gastlogin, Firestore-opslag, migratie en lokale audio. Er worden geen gegevens automatisch tussen beide versies overgezet. Bestaande lokale gegevens kunnen uitsluitend via de expliciete importknoppen worden overgenomen.
+
+Start beide versies met dezelfde server:
 
 ```powershell
+python serve.py
+# Of op een andere poort:
 python serve.py --port 8049
 ```
 
-Open [plan2run](http://127.0.0.1:8049/). Kies **Probeer de demo** voor een eigen demosessie met twee vrienden, een openstaand verzoek, activiteiten en persoonlijke terugblikken. Met **Registreren** maak je een eigen account dat je later opnieuw kunt openen.
+Na een serverupdate moet een eerder draaiende `serve.py` worden gestopt en opnieuw gestart, zodat de nieuwe `/api/`-routes beschikbaar zijn. De SQLite-database blijft bij een herstart behouden. JavaScript, vormgeving en de Gentse kaartdata worden door beide versies gedeeld zonder een tweede kopie van de kaartdata.
 
-De Python-server levert de website en de account-API. Bij de eerste start maakt hij de SQLite-database aan in `data/plan2run.sqlite3`. Een herstart behoudt de gegevens. Alle browsers die dezelfde server gebruiken, delen de vriendenlijst en activiteiten volgens de ingestelde zichtbaarheid.
-
-De regressietests gebruiken een tijdelijke database.
+Extra regressiecontroles voor de lokale demo (tijdelijke database, geen gebruikersgegevens):
 
 ```powershell
 python -m unittest -v test_plan2run
+npm run test:local
 ```
->>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6

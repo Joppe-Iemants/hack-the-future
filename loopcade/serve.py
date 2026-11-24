@@ -21,6 +21,13 @@ attempt_lock=Lock()
 class Handler(SimpleHTTPRequestHandler):
     extensions_map={**SimpleHTTPRequestHandler.extensions_map,".mjs":"text/javascript",".js":"text/javascript"}
 
+    def send_head(self):
+        # Cached modules may carry an old MIME type from a previous server.
+        for header in ("If-Modified-Since", "If-None-Match"):
+            if header in self.headers:
+                del self.headers[header]
+        return super().send_head()
+
     def end_headers(self):
         self.send_header("Cache-Control","no-store")
         self.send_header("X-Content-Type-Options","nosniff")

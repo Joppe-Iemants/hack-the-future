@@ -1,7 +1,7 @@
-import {api} from './account.mjs';
+import {api} from './local/account.mjs';
 const el=id=>document.getElementById(id);
 let signup=false,busy=false;
-const destination=()=>'/'+(location.hash||'#planner');
+const destination=()=>'/local/'+(location.hash||'#planner');
 function choose(value){
   signup=value;el('tab-signup').setAttribute('aria-pressed',String(value));el('tab-login').setAttribute('aria-pressed',String(!value));
   el('display-wrap').hidden=!value;el('display').required=value;
