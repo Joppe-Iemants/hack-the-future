@@ -16,7 +16,9 @@
       <a href="#planner" data-page="planner" class="current"><i data-icon="route"></i>Routeplanner</a>
       <a href="#activities" data-page="activities"><i data-icon="activity"></i>Activiteiten</a>
       <a href="#friends" data-page="friends"><i data-icon="users"></i>Vrienden</a>
+      <a href="#play" data-page="play"><i data-icon="grid"></i>Spelen</a>
     </nav>
+    <button class="gps-badge" id="gps-badge" type="button" hidden title="GPS-registratie is actief. Open Spelen om te stoppen."><b></b>GPS actief</button>
     <button class="point-badge" id="score-link" title="Bekijk je punten en records"><i data-icon="coin"></i><span id="total">0</span> <span>PTS</span></button>
     <div class="account-control"><span id="account-status" role="status">Account laden…</span><button class="button ghost" id="account-button" type="button">Account</button></div>
   </div></header>
@@ -76,6 +78,7 @@
     </section>
     <section id="activities" hidden></section>
     <section id="friends" hidden></section>
+    <section id="play" hidden></section>
     <footer><span class="foot-brand"><b></b><b></b><b></b> plan2run</span><button class="text-link" id="credits">Kaart & gegevens</button></footer>
   </main>
   <dialog id="dialog"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="icon-btn" id="dialog-close" aria-label="Sluiten">×</button></div><div id="dialog-body"></div></dialog>

@@ -54,6 +54,7 @@ async function openApp({cloud = false, localActivities = []} = {}) {
       export const migrateLocalActivities=async()=>{};
       export const loadDemoFriends=async()=>[];
       export const updateDemoFriend=async()=>{};
+      export const firestoreContext=async()=>null;
     `});
     try {
       const body = await readFile(new URL(name, dist));

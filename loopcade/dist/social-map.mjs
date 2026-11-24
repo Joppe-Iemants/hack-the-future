@@ -1,5 +1,7 @@
 let city;
 export function cityMap(){return city??=fetch('/gent.json').then(r=>{if(!r.ok)throw Error('Kaart niet beschikbaar.');return r.json();}).catch(e=>{city=null;throw e;});}
+// De routeplanner heeft de kaart al geladen; hergebruik die in plaats van opnieuw 7 MB op te halen.
+export function shareCityMap(data){city??=Promise.resolve(data);}
 export async function drawRouteMap(canvas,lines){
   const data=await cityMap();
   if(!canvas.isConnected)return;

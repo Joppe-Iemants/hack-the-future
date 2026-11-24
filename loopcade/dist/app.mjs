@@ -4,14 +4,13 @@ import {preferences} from './scenery.mjs';
 import {$,icon,modal,closeModal,toast,km,duration,escapeText,read,write} from './ui.mjs';
 import {history,reflection,renderActivities} from './journal.mjs';
 import {renderFriends} from './friends.mjs';
+import {renderPlay, initializePlay} from './play.mjs';
+import {shareCityMap} from './social-map.mjs';
+import {popularPlaces} from './places.mjs';
 import {initializeStorage, subscribeStorage, getStorageState, saveActivity, savePreferences, canSaveActivities, storageIdentity} from './storage.mjs';
 import {initializeAccount, openAccount} from './account.mjs';
 
-const popular=[
-  ['Korenmarkt',3.7219,51.05442],['Sint-Pietersplein',3.72507,51.04184],['Vrijdagmarkt',3.72524,51.05719],
-  ['Gravensteen',3.72067,51.05684],['Gent Zuid',3.73188,51.04731],['Portus Ganda',3.73559,51.05512],
-  ['Bijloke',3.71534,51.04439],['Sint-Jacobs',3.72728,51.05677],
-];
+const popular=popularPlaces;
 let data,net,map,grid,startId,selected,choices=[],place='Korenmarkt, Gent',busy=false,picking=false;
 let active=read('ongoing',null),mode='run',watch=null,geoNote='',activeTimer,initial=true;
 let storageState=getStorageState(),identity,preferencesAppliedFor=null,preferenceTimer,sessionRestored=false;
@@ -24,17 +23,18 @@ const prefInputs=[...document.querySelectorAll('input[name=scenery]')];
 const requested=()=>prefInputs.filter(input=>input.checked).map(input=>input.value);
 for(const input of prefInputs)input.checked=(active?.requested||[]).includes(input.value);
 $('#preferences').onchange=()=>{dirty();feedback('');};
-const titles={planner:['Routeplanner','Jouw afstand, een nieuw rondje. Terug waar je begon.'],activities:['Activiteiten','Je rondjes, persoonlijke records en fijne momenten onderweg.'],friends:['Vrienden','Deel je rondjes en ontdek wie deze week de meeste punten haalt.']};
+const titles={planner:['Routeplanner','Jouw afstand, een nieuw rondje. Terug waar je begon.'],activities:['Activiteiten','Je rondjes, persoonlijke records en fijne momenten onderweg.'],friends:['Vrienden','Deel je rondjes en ontdek wie deze week de meeste punten haalt.'],play:['Spelen','Verover samen met vrienden terrein: elke week een nieuw klassement.']};
 
 function page(){
-  const key=Object.hasOwn(titles,location.hash.slice(1))?location.hash.slice(1):'planner';
+  const route=location.hash.slice(1).split('/')[0];
+  const key=Object.hasOwn(titles,route)?route:'planner';
   for(const name of Object.keys(titles))$('#'+name).hidden=name!==key;
   document.querySelectorAll('[data-page]').forEach(link=>{
     link.classList.toggle('current',link.dataset.page===key);
     if(link.dataset.page===key)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
   });
   $('#page-title').textContent=titles[key][0];$('#page-intro').textContent=titles[key][1];document.title='plan2run · '+titles[key][0];
-  if(key==='activities')renderActivities();if(key==='friends')renderFriends();
+  if(key==='activities')renderActivities();if(key==='friends')renderFriends();if(key==='play')renderPlay();
   if(key==='planner'&&map)requestAnimationFrame(()=>map.fit());
   $('#total').textContent=history().reduce((sum,a)=>sum+a.points,0);
 }
@@ -276,7 +276,7 @@ async function initialize(){
   try{
     const get=async file=>{const r=await fetch(file);if(!r.ok)throw Error(file);return r.json();};
     [data,grid]=await Promise.all([get('gent.json'),get('height.json').catch(()=>null)]);
-    net=createNetwork(data);map=new RouteMap($('#map'),data);setStart(net.nearest(xy(popular[0][1],popular[0][2])).id,place);
+    shareCityMap(data);net=createNetwork(data);map=new RouteMap($('#map'),data);setStart(net.nearest(xy(popular[0][1],popular[0][2])).id,place);
     // Een actief rondje mag pas worden hersteld als de eigenaar door auth bekend is.
     if(active)await storageReady;
     const currentIdentity=storageIdentity();
@@ -292,6 +292,6 @@ async function initialize(){
     status('Kaart niet geladen');feedback('De kaart kon niet worden geladen. Vernieuw de pagina om opnieuw te proberen.');$('#generate').disabled=true;
   }
 }
-initializeAccount();
+initializeAccount();initializePlay();
 subscribeStorage(storageChanged);
 page();updateSlider();initialize();

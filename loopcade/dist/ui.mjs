@@ -20,6 +20,7 @@ const paths = {
   mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/>',
   listen:'<path d="M3 10h4l6-5v14l-6-5H3zm13-2a5 5 0 0 1 0 8m3-11a9 9 0 0 1 0 14"/>',
   save:'<path d="M4 4h13l3 3v13H4zM8 4v6h8V4m-8 16v-6h8v6"/>',
+  grid:'<path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3z"/><path d="M14 14h7v7h-7z" fill="currentColor" fill-opacity=".35"/>',
 };
 export function icon(key){return '<i data-icon="'+key+'" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(paths[key]||'')+'</svg></i>';}
 export const $ = selector=>document.querySelector(selector);

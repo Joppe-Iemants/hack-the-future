@@ -227,6 +227,14 @@ async function requireAuth() {
   return auth.currentUser;
 }
 
+// Zelfde Firebase-app en login voor extra functies zoals Spelen: geen tweede app of inlogsysteem.
+// Geeft null terug zolang Firebase niet is geconfigureerd.
+export async function firestoreContext() {
+  if (!configured) return null;
+  const user = await requireAuth();
+  return {db, sdk, user, isCurrent: () => auth.currentUser?.uid === user.uid};
+}
+
 // Three fictional friends are a bounded part of the private user document.
 // This works with the existing owner-only Firestore rules.
 export async function loadDemoFriends() {
