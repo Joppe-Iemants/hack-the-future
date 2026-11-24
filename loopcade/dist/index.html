@@ -9,7 +9,8 @@
   <link rel="preload" href="pixel.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="booting">
+  <p id="boot-status" role="status">Je account wordt geladen…</p>
   <header class="top"><div class="shell top-inner">
     <a class="brand" href="#planner" aria-label="plan2run startpagina"><img src="logo.svg" width="39" height="39" alt=""><span>plan<span>2run</span></span></a>
     <nav aria-label="Hoofdnavigatie">
@@ -18,7 +19,11 @@
       <a href="#friends" data-page="friends"><i data-icon="users"></i>Vrienden</a>
     </nav>
     <button class="point-badge" id="score-link" title="Bekijk je punten en records"><i data-icon="coin"></i><span id="total">0</span> <span>PTS</span></button>
+<<<<<<< HEAD
     <div class="account-control"><span id="account-status" role="status">Account laden…</span><button class="button ghost" id="account-button" type="button">Account</button></div>
+=======
+    <button class="account-button" id="account-button" aria-label="Mijn account"><i data-icon="users"></i><span id="account-name">Account</span></button>
+>>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6
   </div></header>
   <main class="shell">
     <section class="banner" aria-labelledby="page-title">
@@ -80,6 +85,6 @@
   </main>
   <dialog id="dialog"><div class="dialog-top"><h2 id="dialog-title"></h2><button class="icon-btn" id="dialog-close" aria-label="Sluiten">×</button></div><div id="dialog-body"></div></dialog>
   <div id="toast" role="status"></div>
-  <script src="skyline.js"></script><script type="module" src="app.mjs"></script>
+  <script src="skyline.js"></script><script type="module" src="boot.mjs"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 test-results/
 playwright-report/
@@ -9,3 +10,8 @@ ui-debug.log*
 .firebase/
 .service-accounts/
 serviceAccount*.json
+=======
+data/
+__pycache__/
+*.pyc
+>>>>>>> c97a29b592cae43c69ac63c297525c59d106e6c6
