@@ -84,6 +84,17 @@ test('browser: gast, Google-koppeling, sessieherstel, cloudreflectie, scheiding 
   const sampleFriends = await page.evaluate(async () => (await import('/storage.mjs')).loadDemoFriends());
   assert.equal(sampleFriends.length, 3);
   assert.equal(sampleFriends.find(friend => friend.id === 'demo-yara').status, 'accepted');
+  await page.locator('#people [data-person="demo-noor"][data-action="remove"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(2);
+  await expect(page.locator('#feed')).not.toContainText('Noor');
+  await expect(page.locator('#friend-ranks')).not.toContainText('Noor');
+  await page.reload();
+  await expect(page.locator('#people .activity-row')).toHaveCount(2, {timeout: 15000});
+  await expect(page.locator('#people')).not.toContainText('Noor');
+  await page.locator('#people-search').fill('Noor');
+  await page.locator('#suggestions [data-action="request"]').click();
+  await expect(page.locator('#people .activity-row')).toHaveCount(3);
+  await expect(page.locator('#feed')).toContainText('Noor');
   await page.locator('[data-page="planner"]').click();
   await expect(page.locator('#start-run')).toBeEnabled({timeout: 30000});
 

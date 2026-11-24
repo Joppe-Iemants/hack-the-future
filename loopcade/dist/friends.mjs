@@ -35,7 +35,7 @@ export async function renderFriends() {
     }))].sort((a, b) => b.points - a.points);
     pane.innerHTML = '<p class="fine">Noor, Milan en Yara zijn fictieve demovrienden. Hun voorbeeldrondjes en jouw keuzes worden in jouw Firebase-account bewaard.</p>' +
       '<div class="dashboard-grid"><article class="panel"><h2 class="panel-heading">' + icon('users') + 'Mijn vrienden</h2><div id="people" class="section-content stack">' +
-      list(accepted.map(friend => '<div class="activity-row">' + person(friend) + '</div>'), 'Je hebt nog geen demovrienden toegevoegd.') +
+      list(accepted.map(friend => '<div class="activity-row">' + person(friend) + action(friend, 'remove', 'Ontvrienden') + '</div>'), 'Je hebt nog geen demovrienden toegevoegd.') +
       '</div></article><article class="panel"><h2 class="panel-heading">' + icon('users') + 'Vriendschapsverzoeken</h2><div id="friend-requests" class="section-content stack">' +
       list(pending.map(friend => '<div class="activity-row">' + person(friend) + '<div class="dialog-actions">' + action(friend, 'accept', 'Accepteren') + action(friend, 'decline', 'Weigeren') + '</div></div>'), 'Geen openstaande verzoeken.') +
       '</div></article><article class="panel"><h2 class="panel-heading">' + icon('users') + 'Demovriend zoeken</h2><div class="section-content"><label>Zoek op naam<input id="people-search" class="input" type="search" placeholder="Bijv. Yara"></label><div id="suggestions" class="stack"></div></div></article>' +

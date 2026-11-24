@@ -257,6 +257,7 @@ export async function updateDemoFriend(id, action) {
     let status;
     if (action === 'accept' && friend.status === 'pending') status = 'accepted';
     else if (action === 'decline' && friend.status === 'pending') status = 'declined';
+    else if (action === 'remove' && friend.status === 'accepted') status = 'declined';
     else if (action === 'request' && friend.status === 'declined') status = 'accepted';
     else throw new Error('Dit verzoek is al verwerkt. Vernieuw je vriendenlijst.');
     transaction.update(reference, {demoFriends: {...friends, [id]: {...friend, status}}});
